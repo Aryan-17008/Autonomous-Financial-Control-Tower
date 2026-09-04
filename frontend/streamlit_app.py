@@ -3,6 +3,7 @@ import requests
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import random
 from datetime import datetime
 
 st.set_page_config(page_title="Financial Control Tower", layout="wide")
