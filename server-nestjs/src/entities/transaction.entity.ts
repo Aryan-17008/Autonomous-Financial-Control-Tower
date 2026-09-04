@@ -1,25 +1,29 @@
 import { Entity, PrimaryColumn, Column } from 'typeorm';
 
+/**
+ * Transaction entity - mirrors the shared Transaction interface in src/types.ts.
+ * IDs are business strings (e.g. "txn_123"), not autoincrement.
+ */
 @Entity('transactions')
 export class Transaction {
-  @PrimaryColumn()
+  @PrimaryColumn('text')
   id: string;
 
   @Column('real')
   amount: number;
 
-  @Column()
+  @Column('text')
   currency: string;
 
-  @Column()
+  @Column('text')
   vendor: string;
 
-  @Column()
+  @Column('text')
   timestamp: string;
 
-  @Column()
+  @Column('text')
   category: string;
 
-  @Column()
+  @Column('text')
   counterparty_id: string;
 }

@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get, Param } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { OrchestratorService } from '../orchestrator.service';
+import { OrchestratorService } from '../services/orchestrator.service';
 import { Transaction } from '../entities/transaction.entity';
 import { Alert } from '../entities/alert.entity';
 import { Recommendation } from '../entities/recommendation.entity';

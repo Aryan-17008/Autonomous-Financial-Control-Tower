@@ -1,7 +1,22 @@
-import { Alert, Severity, Recommendation, RecommendationType, RecommendationStatus } from './types';
+import { Injectable, Optional } from '@nestjs/common';
+import { Alert, Severity, Recommendation, RecommendationType, RecommendationStatus } from '../types';
 import { randomUUID } from 'crypto';
+import { OpenAiEnhancerService } from './openai-enhancer.service';
 
+/**
+ * DecisionService - turns agent alerts into actionable recommendations
+ * (BLOCK / REVIEW / APPROVE). Registered as an injectable provider so
+ * the orchestrator can compose it with the agents via DI.
+ *
+ * process() is synchronous and rules-based (deterministic, offline).
+ * processSmart() additionally rewrites reasons / risk scores via the
+ * optional OpenAI enhancer when OPENAI_API_KEY is configured.
+ */
+@Injectable()
 export class DecisionService {
+  constructor(
+    @Optional() private readonly aiEnhancer?: OpenAiEnhancerService,
+  ) {}
   private readonly severityScores: Record<Severity, number> = {
     [Severity.CRITICAL]: 1.0,
     [Severity.HIGH]: 0.7,
@@ -37,6 +52,19 @@ export class DecisionService {
     }
 
     return recommendations;
+  }
+
+  /**
+   * Rules-based recommendations, then optional OpenAI polish of the
+   * reason text and risk scores. Without an API key (or on failure)
+   * this is exactly equivalent to process().
+   */
+  async processSmart(alerts: Alert[]): Promise<Recommendation[]> {
+    const recommendations = this.process(alerts);
+    if (!this.aiEnhancer?.enabled) {
+      return recommendations;
+    }
+    return this.aiEnhancer.enhance(alerts, recommendations);
   }
 
   calculateRiskScore(alerts: Alert[]): number {
