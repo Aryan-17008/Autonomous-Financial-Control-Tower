@@ -1,0 +1,9 @@
+node_modules/
+financial-tower/frontend/node_modules/
+financial-tower/backend/node_modules/
+financial-tower/backend/dev.db
+financial-tower/backend/dev.db-journal
+financial-tower/frontend/.expo/
+financial-tower/frontend/dist/
+financial-tower/backend/dist/
+.env

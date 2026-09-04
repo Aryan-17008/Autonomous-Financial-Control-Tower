@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model users {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  password_hash String
+  role          String          @default("analyst")
+  created_at    DateTime        @default(now())
+  
+  transactions  transactions[]
+}
+
+model transactions {
+  id              String   @id @default(uuid())
+  user_id         String
+  user            users    @relation(fields: [user_id], references: [id])
+  amount          Float
+  currency        String   @default("INR")
+  vendor          String
+  timestamp       DateTime @default(now())
+  category        String?
+  counterparty_id String?
+  
+  alerts          alerts[]
+}
+
+model alerts {
+  id             String        @id @default(uuid())
+  type           String
+  severity       String        // CRITICAL, HIGH, MEDIUM, LOW
+  message        String
+  transaction_id String?
+  transaction    transactions? @relation(fields: [transaction_id], references: [id])
+  timestamp      DateTime      @default(now())
+  status         String        @default("ACTIVE") // ACTIVE, RESOLVED
+}
+
+model recommendations {
+  id         String      @id @default(uuid())
+  type       String      // BLOCK, REVIEW
+  action     String
+  reason     String
+  risk_score Float
+  status     String      @default("pending") // pending, executed
+  
+  audit_logs audit_log[]
+}
+
+model audit_log {
+  id                String          @id @default(uuid())
+  recommendation_id String?
+  recommendation    recommendations? @relation(fields: [recommendation_id], references: [id])
+  action            String
+  user              String
+  timestamp         DateTime        @default(now())
+}
