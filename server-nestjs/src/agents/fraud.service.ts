@@ -1,5 +1,14 @@
-import { Transaction, Alert, Severity, AgentResult } from './types';
+import { Injectable } from '@nestjs/common';
+import { Transaction, Alert, AlertType, Severity, AgentResult } from '../types';
 
+/**
+ * FraudAgent - analyzes a transaction for fraud signals
+ * (high amounts, negative amounts).
+ *
+ * Registered as a NestJS injectable service so the orchestrator /
+ * controllers can inject it via DI.
+ */
+@Injectable()
 export class FraudAgent {
   private readonly anomalyThreshold = 2.0;
 
@@ -9,7 +18,7 @@ export class FraudAgent {
 
     if (transaction.amount > 10000) {
       alerts.push({
-        type: 'HIGH_AMOUNT',
+        type: AlertType.HIGH_AMOUNT,
         severity: Severity.HIGH,
         message: `Transaction amount $${transaction.amount} exceeds threshold`,
         transaction_id: transaction.id,
@@ -20,7 +29,7 @@ export class FraudAgent {
 
     if (transaction.amount < 0) {
       alerts.push({
-        type: 'NEGATIVE_AMOUNT',
+        type: AlertType.NEGATIVE_AMOUNT,
         severity: Severity.CRITICAL,
         message: `Negative transaction amount detected: $${transaction.amount}`,
         transaction_id: transaction.id,

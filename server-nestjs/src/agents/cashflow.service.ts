@@ -1,5 +1,14 @@
-import { Transaction, Alert, Severity, AgentResult } from './types';
+import { Injectable } from '@nestjs/common';
+import { Transaction, Alert, AlertType, Severity, AgentResult } from '../types';
 
+/**
+ * CashFlowAgent - tracks running balance and flags liquidity risk
+ * (low balance, large outflows).
+ *
+ * Registered as a NestJS injectable service so the orchestrator /
+ * controllers can inject it via DI.
+ */
+@Injectable()
 export class CashFlowAgent {
   private balance = 100000;
 
@@ -11,7 +20,7 @@ export class CashFlowAgent {
 
     if (this.balance < 20000) {
       alerts.push({
-        type: 'LOW_BALANCE',
+        type: AlertType.LOW_BALANCE,
         severity: Severity.HIGH,
         message: `Balance dropping low: $${this.balance}`,
         transaction_id: transaction.id,
@@ -21,7 +30,7 @@ export class CashFlowAgent {
 
     if (transaction.amount > 50000) {
       alerts.push({
-        type: 'LARGE_OUTFLOW',
+        type: AlertType.LARGE_OUTFLOW,
         severity: Severity.MEDIUM,
         message: `Large cash outflow: $${transaction.amount}`,
         transaction_id: transaction.id,
