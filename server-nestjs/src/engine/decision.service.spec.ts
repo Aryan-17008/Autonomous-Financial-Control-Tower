@@ -129,5 +129,20 @@ describe('DecisionService', () => {
       expect(result[0].type).toBe(RecommendationType.REVIEW);
       expect(result[0].risk_score).toBe(0.7);
     });
+
+    it('should use the fallback risk score for an unknown severity', () => {
+      const service = new DecisionService();
+
+      const alerts = [
+        {
+          type: AlertType.HIGH_AMOUNT,
+          severity: 'UNKNOWN' as Severity,
+          message: 'Unknown severity alert',
+          timestamp: new Date().toISOString(),
+        },
+      ];
+
+      expect(service.calculateRiskScore(alerts)).toBe(0.1);
+    });
   });
 });
