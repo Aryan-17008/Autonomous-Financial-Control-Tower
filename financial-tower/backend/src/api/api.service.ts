@@ -1,9 +1,29 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
 export class ApiService {
-  constructor(private prisma: PrismaService) {}
+  private genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  async generateAIExplanation(tx: any, agentName: string, fallback: string): Promise<string> {
+    if (!this.genAI) return fallback;
+    try {
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const prompt = `You are an autonomous financial AI agent named ${agentName}. Explain to the CFO why this transaction is suspicious in 1-2 brief sentences:
+      Transaction Amount: ₹${tx.amount}
+      Vendor: ${tx.vendor}
+      Do not use introductory greetings. Just provide the concise explanation starting with "Flagged because..."`;
+      
+      const result = await model.generateContent(prompt);
+      return result.response.text().trim() || fallback;
+    } catch (e) {
+      console.error('LLM Generation failed', e);
+      return fallback;
+    }
+  }
 
   private categorizeVendor(vendor: string): string {
     const v = vendor.toLowerCase();
@@ -123,10 +143,12 @@ export class ApiService {
       // Fraud Agent
       if (tx.amount > 10000 || tx.amount < 0) {
         txRisk += 50;
+        const fallback = `Flagged because this ₹${tx.amount} payment is highly anomalous compared to your historical averages for vendor ${tx.vendor}.`;
+        const explanation = await this.generateAIExplanation(tx, 'Fraud Agent', fallback);
         generatedAlerts.push({
           type: 'Fraud', severity: tx.amount > 50000 ? 'CRITICAL' : 'HIGH',
           message: `Unusual transaction amount detected: ${tx.amount}`,
-          explanation: `Flagged because this ₹${tx.amount} payment is highly anomalous compared to your historical averages for vendor ${tx.vendor}.`,
+          explanation,
           transaction_id: tx.id
         });
       }
@@ -134,10 +156,12 @@ export class ApiService {
       // Cash Flow Agent
       if (tx.amount > 50000) {
         txRisk += 20;
+        const fallback = `Flagged because this single transaction of ₹${tx.amount} represents a substantial drop in your forecasted 30-day runway.`;
+        const explanation = await this.generateAIExplanation(tx, 'Cash Flow Agent', fallback);
         generatedAlerts.push({
           type: 'Cash Flow', severity: 'MEDIUM',
           message: 'Large outflow impacting cash runway',
-          explanation: `Flagged because this single transaction of ₹${tx.amount} represents a substantial drop in your forecasted 30-day runway.`,
+          explanation,
           transaction_id: tx.id
         });
       }
@@ -145,10 +169,12 @@ export class ApiService {
       // Compliance Agent
       if (tx.amount > 50000 || tx.vendor.includes('Blocklist')) {
         txRisk += 30;
+        const fallback = `Flagged because vendor ${tx.vendor} matches compliance risk factors or the amount exceeds internal limits.`;
+        const explanation = await this.generateAIExplanation(tx, 'Compliance Agent', fallback);
         generatedAlerts.push({
           type: 'Compliance', severity: 'HIGH',
           message: 'Transaction exceeds compliance threshold or matches blocklist',
-          explanation: `Flagged because vendor ${tx.vendor} matches compliance risk factors or the amount exceeds internal limits.`,
+          explanation,
           transaction_id: tx.id
         });
       }
