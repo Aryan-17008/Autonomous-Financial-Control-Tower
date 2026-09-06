@@ -23,6 +23,7 @@ export class ApiService {
     // But realistically it can be whatever. Just fallback based on indexes if unknown.
     const amtIdx = headers.indexOf('amount');
     const venIdx = headers.indexOf('vendor');
+    const dateIdx = headers.indexOf('date');
     
     let duplicates_skipped = 0;
     let rejected_rows = 0;
@@ -35,6 +36,7 @@ export class ApiService {
       const parts = lines[i].split(',');
       const amountStr = amtIdx >= 0 ? parts[amtIdx] : parts[0];
       const vendorStr = venIdx >= 0 ? parts[venIdx] : parts[1] || 'Unknown';
+      const dateStr = dateIdx >= 0 ? parts[dateIdx] : null;
       
       const amount = parseFloat(amountStr);
       if (isNaN(amount)) {
@@ -42,8 +44,8 @@ export class ApiService {
         continue;
       }
       
-      // Simple duplicate hash: vendor + amount
-      const hash = `${vendorStr}_${amount}`;
+      // Simple duplicate hash: vendor + amount + date
+      const hash = `${vendorStr}_${amount}_${dateStr || i}`;
       if (txHashes.has(hash)) {
         duplicates_skipped++;
         continue;
@@ -61,11 +63,20 @@ export class ApiService {
       
       txHashes.add(hash);
       
+      // If date exists use it, otherwise synthesize past dates (1 to 30 days ago) so forecasting works
+      let txDate = new Date();
+      if (dateStr && !isNaN(Date.parse(dateStr))) {
+         txDate = new Date(dateStr);
+      } else {
+         txDate.setDate(txDate.getDate() - (i % 30)); 
+      }
+      
       validTxs.push({
         amount: amount,
         currency: 'INR',
         vendor: vendorStr,
         category: this.categorizeVendor(vendorStr),
+        timestamp: txDate
       });
     }
 
