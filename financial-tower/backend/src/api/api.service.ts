@@ -1,36 +1,40 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import 'dotenv/config';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Groq from 'groq-sdk';
 
 @Injectable()
 export class ApiService {
   constructor(private readonly prisma: PrismaService) {}
 
   async generateBatchAIExplanations(anomalies: any[]): Promise<string[]> {
-    const apiKey = process.env.GEMINI_API_KEY;
+    const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) {
+      console.warn('No GROQ_API_KEY found, using fallbacks.');
       return anomalies.map(a => a.fallback);
     }
     
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+      const groq = new Groq({ apiKey });
       const prompt = `You are a financial AI agent. For each anomalous transaction below, write a 1-2 sentence explanation starting with "Flagged because...". Separate each explanation EXACTLY with the delimiter "|||".\n\n` + 
         anomalies.map((a, i) => `Item ${i}:\nAgent: ${a.agentName}\nAmount: ₹${a.tx.amount}\nVendor: ${a.tx.vendor}`).join('\n\n');
       
-      const result = await model.generateContent(prompt);
-      const text = result.response.text().trim();
+      const result = await groq.chat.completions.create({
+        messages: [{ role: 'user', content: prompt }],
+        model: 'llama-3.3-70b-versatile',
+      });
+      
+      const text = result.choices[0]?.message?.content?.trim() || '';
       
       const parts = text.split('|||').map(p => p.trim());
-      if (parts.length === anomalies.length) {
-        return parts;
+      if (parts.length >= anomalies.length) {
+        return parts.slice(0, anomalies.length);
       } else {
-        console.warn('Batch split mismatch, using fallbacks.');
+        console.warn('Batch split mismatch from Groq, using fallbacks.');
         return anomalies.map(a => a.fallback);
       }
     } catch (e) {
-      console.error('LLM Batch Generation failed:', e);
+      console.error('LLM Batch Generation failed with Groq:', e);
       return anomalies.map(a => a.fallback);
     }
   }
