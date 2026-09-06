@@ -7,29 +7,31 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 export class ApiService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async generateAIExplanation(tx: any, agentName: string, fallback: string): Promise<string> {
+  async generateBatchAIExplanations(anomalies: any[]): Promise<string[]> {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.log('No GEMINI_API_KEY found, using fallback.');
-      return fallback;
+      return anomalies.map(a => a.fallback);
     }
     
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
-      
-      const prompt = `You are an autonomous financial AI agent named ${agentName}. Explain to the CFO why this transaction is suspicious in 1-2 brief sentences:
-      Transaction Amount: ₹${tx.amount}
-      Vendor: ${tx.vendor}
-      Do not use introductory greetings. Just provide the concise explanation starting with "Flagged because..."`;
+      const prompt = `You are a financial AI agent. For each anomalous transaction below, write a 1-2 sentence explanation starting with "Flagged because...". Separate each explanation EXACTLY with the delimiter "|||".\n\n` + 
+        anomalies.map((a, i) => `Item ${i}:\nAgent: ${a.agentName}\nAmount: ₹${a.tx.amount}\nVendor: ${a.tx.vendor}`).join('\n\n');
       
       const result = await model.generateContent(prompt);
       const text = result.response.text().trim();
-      console.log('Gemini generated:', text);
-      return text || fallback;
+      
+      const parts = text.split('|||').map(p => p.trim());
+      if (parts.length === anomalies.length) {
+        return parts;
+      } else {
+        console.warn('Batch split mismatch, using fallbacks.');
+        return anomalies.map(a => a.fallback);
+      }
     } catch (e) {
-      console.error('LLM Generation failed:', e);
-      return fallback;
+      console.error('LLM Batch Generation failed:', e);
+      return anomalies.map(a => a.fallback);
     }
   }
 
@@ -144,74 +146,76 @@ export class ApiService {
       })
     );
 
-    // Run Agents
+    // 1. Collect anomalies
+    const anomaliesToProcess = [];
+
     for (const tx of savedTxs) {
-      let txRisk = 0;
-      
       // Fraud Agent
       if (tx.amount > 10000 || tx.amount < 0) {
-        txRisk += 50;
-        const fallback = `Flagged because this ₹${tx.amount} payment is highly anomalous compared to your historical averages for vendor ${tx.vendor}.`;
-        const explanation = await this.generateAIExplanation(tx, 'Fraud Agent', fallback);
-        generatedAlerts.push({
+        anomaliesToProcess.push({
+          tx, agentName: 'Fraud Agent',
+          fallback: `Flagged because this ₹${tx.amount} payment is highly anomalous compared to your historical averages for vendor ${tx.vendor}.`,
           type: 'Fraud', severity: tx.amount > 50000 ? 'CRITICAL' : 'HIGH',
           message: `Unusual transaction amount detected: ${tx.amount}`,
-          explanation,
-          transaction_id: tx.id
+          riskScore: 50
         });
       }
 
       // Cash Flow Agent
       if (tx.amount > 50000) {
-        txRisk += 20;
-        const fallback = `Flagged because this single transaction of ₹${tx.amount} represents a substantial drop in your forecasted 30-day runway.`;
-        const explanation = await this.generateAIExplanation(tx, 'Cash Flow Agent', fallback);
-        generatedAlerts.push({
+        anomaliesToProcess.push({
+          tx, agentName: 'Cash Flow Agent',
+          fallback: `Flagged because this single transaction of ₹${tx.amount} represents a substantial drop in your forecasted 30-day runway.`,
           type: 'Cash Flow', severity: 'MEDIUM',
           message: 'Large outflow impacting cash runway',
-          explanation,
-          transaction_id: tx.id
+          riskScore: 20
         });
       }
 
       // Compliance Agent
       if (tx.amount > 50000 || tx.vendor.includes('Blocklist')) {
-        txRisk += 30;
-        const fallback = `Flagged because vendor ${tx.vendor} matches compliance risk factors or the amount exceeds internal limits.`;
-        const explanation = await this.generateAIExplanation(tx, 'Compliance Agent', fallback);
-        generatedAlerts.push({
+        anomaliesToProcess.push({
+          tx, agentName: 'Compliance Agent',
+          fallback: `Flagged because vendor ${tx.vendor} matches compliance risk factors or the amount exceeds internal limits.`,
           type: 'Compliance', severity: 'HIGH',
           message: 'Transaction exceeds compliance threshold or matches blocklist',
-          explanation,
-          transaction_id: tx.id
+          riskScore: 30
         });
       }
-
-      globalRisk = Math.max(globalRisk, txRisk);
     }
 
-    // Decision Engine mapping alerts to recommendations
-    for (const alert of generatedAlerts) {
+    // 2. Fetch all AI explanations in ONE request (prevents 429 rate limit)
+    const explanations = anomaliesToProcess.length > 0 
+      ? await this.generateBatchAIExplanations(anomaliesToProcess)
+      : [];
+
+    // 3. Save alerts and recommendations
+    for (let i = 0; i < anomaliesToProcess.length; i++) {
+      const anomaly = anomaliesToProcess[i];
+      const explanation = explanations[i];
+      globalRisk = Math.max(globalRisk, anomaly.riskScore);
+
       const dbAlert = await this.prisma.alerts.create({
         data: {
-          type: alert.type, severity: alert.severity, message: alert.message, 
-          explanation: alert.explanation, transaction_id: alert.transaction_id, status: 'ACTIVE'
+          type: anomaly.type, severity: anomaly.severity, message: anomaly.message, 
+          explanation: explanation, transaction_id: anomaly.tx.id, status: 'ACTIVE'
         }
       });
+      generatedAlerts.push(dbAlert);
 
-      if (alert.severity === 'CRITICAL') {
+      if (anomaly.severity === 'CRITICAL') {
         const rec = await this.prisma.recommendations.create({
           data: {
-            type: 'BLOCK', action: `Block transaction to ${alert.transaction_id}`,
-            reason: alert.message, explanation: alert.explanation, risk_score: 95, status: 'pending'
+            type: 'BLOCK', action: `Block transaction to ${anomaly.tx.id}`,
+            reason: anomaly.message, explanation: explanation, risk_score: 95, status: 'pending'
           }
         });
         generatedRecommendations.push(rec);
-      } else if (alert.severity === 'HIGH') {
+      } else if (anomaly.severity === 'HIGH') {
         const rec = await this.prisma.recommendations.create({
           data: {
-            type: 'REVIEW', action: `Review transaction ${alert.transaction_id}`,
-            reason: alert.message, explanation: alert.explanation, risk_score: 80, status: 'pending'
+            type: 'REVIEW', action: `Review transaction ${anomaly.tx.id}`,
+            reason: anomaly.message, explanation: explanation, risk_score: 80, status: 'pending'
           }
         });
         generatedRecommendations.push(rec);
@@ -219,8 +223,8 @@ export class ApiService {
     }
 
     return {
-      risk_score: Math.min(100, globalRisk),
-      alerts_count: generatedAlerts.length,
+      globalRisk,
+      alerts: generatedAlerts,
       recommendations: generatedRecommendations
     };
   }
