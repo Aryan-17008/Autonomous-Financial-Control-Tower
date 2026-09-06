@@ -1,76 +1,56 @@
-# Autonomous Financial Control Tower
+﻿# Autonomous Financial Control Tower
 
-An AI-powered, real-time financial control center built with **NestJS**, **Prisma**, **SQLite**, and **React Native (Expo)**. This application continuously monitors financial activity, detects risks (Fraud, Cash Flow, Compliance), generates recommendations, and maintains a complete immutable audit trail.
+This is a comprehensive hackathon MVP for an autonomous financial control tower. It features a React Native (Expo) frontend and a NestJS backend powered by Prisma and SQLite.
 
----
+## Prerequisites
 
-## 🛠 Prerequisites
+- Node.js (v18+)
+- npm
 
-Make sure you have the following installed on your machine:
-- [Node.js](https://nodejs.org/) (v18 or higher recommended)
-- [Git](https://git-scm.com/)
-- [Expo Go App](https://expo.dev/go) (if you want to test on a physical iOS or Android device)
+## Setup & Running
 
----
+This project is divided into `backend` and `frontend`.
 
-## 🚀 Step-by-Step Setup Guide
+### 1. Backend
 
-This project is a monorepo containing both a `frontend` and a `backend`. You will need to open two separate terminal windows to boot up both sides.
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+3. Set up the database:
+   ```bash
+   npx prisma db push
+   ```
+4. Start the backend development server:
+   ```bash
+   npm run start:dev
+   ```
+   The backend will run on `http://localhost:3000`.
 
-### Step 1: Boot up the Backend (NestJS + SQLite)
+### 2. Frontend
 
-Open your first terminal and run the following commands:
+1. Open a new terminal and navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+3. Start the Expo development server:
+   ```bash
+   npx expo start -c
+   ```
+4. Press `w` to open in a web browser.
 
-\`\`\`bash
-# Navigate to the backend folder
-cd financial-tower/backend
+## Features Implemented
 
-# Install dependencies
-npm install
-
-# Initialize the SQLite Database and Prisma Client
-npx prisma db push --accept-data-loss
-npx prisma generate
-
-# Start the NestJS server
-npm run start:dev
-\`\`\`
-*The backend should now be running on `http://localhost:3000`.*
-
----
-
-### Step 2: Boot up the Frontend (Expo)
-
-Before starting the frontend, if you plan to run this on a **physical mobile device**, you need to point the app to your computer's local Wi-Fi IP address (since `localhost` on a phone points to the phone itself, not your computer). 
-
-1. Open `financial-tower/frontend/lib/api.ts`
-2. Change the `API_URL` to match your computer's local IPv4 address (e.g., `http://192.168.1.100:3000`). If you are only testing on the web browser, `localhost` works perfectly fine!
-
-Open a **second** terminal and run the following:
-
-\`\`\`bash
-# Navigate to the frontend folder
-cd financial-tower/frontend
-
-# Install dependencies
-npm install
-
-# Start the Expo Metro Bundler
-npm run start
-\`\`\`
-
-### Step 3: View the App
-
-Once the Expo bundler starts, it will display a QR code in your terminal.
-- **For Web:** Press `w` in the terminal to automatically open the app in your browser.
-- **For Mobile:** Open the **Expo Go** app on your phone and scan the QR code.
-
----
-
-## 💡 How to Test the Demo Flow
-
-1. On the login screen, click **"Create an account"** and register a test user.
-2. Once logged into the dashboard, open the sidebar and navigate to the **"Data In"** tab.
-3. Click the **"Simulate Upload"** button. This mimics a batch CSV upload of transactions.
-4. The transaction payload will hit the NestJS backend and route through the AI agents (Fraud, Cash Flow, Compliance).
-5. Navigate to the **"Alerts"**, **"Risk"**, and **"AI"** tabs to see the dynamically generated flags, counterparty risk scores, and blocked recommendations!
+- **JWT Authentication**
+- **Data Ingestion** (CSV upload parsing)
+- **Risk & Alerting**
+- **Cash Flow Forecasting**
+- **What-If Simulations**
