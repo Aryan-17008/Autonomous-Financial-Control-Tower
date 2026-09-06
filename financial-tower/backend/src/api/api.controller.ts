@@ -13,7 +13,7 @@ export class ApiController {
       throw new BadRequestException('No CSV file or text provided');
     }
     const csvContent = file ? file.buffer.toString('utf8') : body.csv;
-    return this.apiService.processCSVUpload(csvContent, req.user.id);
+    return this.apiService.processCSVUpload(csvContent, req.user.userId);
   }
 
   @Post('analyze')
@@ -22,22 +22,22 @@ export class ApiController {
     if (transactions.length > 200) {
       throw new Error('Batch size exceeds 200');
     }
-    return this.apiService.analyzeTransactions(transactions, req.user.id);
+    return this.apiService.analyzeTransactions(transactions, req.user.userId);
   }
 
   @Get('dashboard/summary')
   async getDashboardSummary(@Request() req: any) {
-    return this.apiService.getDashboardSummary(req.user.id);
+    return this.apiService.getDashboardSummary(req.user.userId);
   }
 
   @Get('forecast')
   async getForecast(@Request() req: any) {
-    return this.apiService.getForecast(req.user.id);
+    return this.apiService.getForecast(req.user.userId);
   }
 
   @Post('simulate')
   async simulate(@Body() body: any, @Request() req: any) {
-    return this.apiService.simulateForecast(req.user.id, body);
+    return this.apiService.simulateForecast(req.user.userId, body);
   }
 
   @Get('alerts')
@@ -62,6 +62,6 @@ export class ApiController {
 
   @Post('execute/:id')
   async executeRecommendation(@Param('id') id: string, @Request() req: any) {
-    return this.apiService.executeRecommendation(id, req.user.id);
+    return this.apiService.executeRecommendation(id, req.user.userId);
   }
 }
