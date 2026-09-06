@@ -27,6 +27,7 @@ model transactions {
   timestamp       DateTime @default(now())
   category        String?
   counterparty_id String?
+  recurring       Boolean  @default(false)
   
   alerts          alerts[]
 }
@@ -36,6 +37,7 @@ model alerts {
   type           String
   severity       String        // CRITICAL, HIGH, MEDIUM, LOW
   message        String
+  explanation    String?
   transaction_id String?
   transaction    transactions? @relation(fields: [transaction_id], references: [id])
   timestamp      DateTime      @default(now())
@@ -47,6 +49,7 @@ model recommendations {
   type       String      // BLOCK, REVIEW
   action     String
   reason     String
+  explanation String?
   risk_score Float
   status     String      @default("pending") // pending, executed
   
