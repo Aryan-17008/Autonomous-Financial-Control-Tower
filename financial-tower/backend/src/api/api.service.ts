@@ -5,23 +5,29 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 @Injectable()
 export class ApiService {
-  private genAI = process.env.GEMINI_API_KEY ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY) : null;
-
   constructor(private readonly prisma: PrismaService) {}
 
   async generateAIExplanation(tx: any, agentName: string, fallback: string): Promise<string> {
-    if (!this.genAI) return fallback;
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      console.log('No GEMINI_API_KEY found, using fallback.');
+      return fallback;
+    }
+    
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+      const genAI = new GoogleGenerativeAI(apiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
       const prompt = `You are an autonomous financial AI agent named ${agentName}. Explain to the CFO why this transaction is suspicious in 1-2 brief sentences:
       Transaction Amount: ₹${tx.amount}
       Vendor: ${tx.vendor}
       Do not use introductory greetings. Just provide the concise explanation starting with "Flagged because..."`;
       
       const result = await model.generateContent(prompt);
-      return result.response.text().trim() || fallback;
+      const text = result.response.text().trim();
+      console.log('Gemini generated:', text);
+      return text || fallback;
     } catch (e) {
-      console.error('LLM Generation failed', e);
+      console.error('LLM Generation failed:', e);
       return fallback;
     }
   }
