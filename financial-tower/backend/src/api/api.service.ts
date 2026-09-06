@@ -16,7 +16,8 @@ export class ApiService {
     
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
+      
       const prompt = `You are an autonomous financial AI agent named ${agentName}. Explain to the CFO why this transaction is suspicious in 1-2 brief sentences:
       Transaction Amount: ₹${tx.amount}
       Vendor: ${tx.vendor}
