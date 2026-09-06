@@ -21,7 +21,7 @@ export class ApiService {
       
       const result = await groq.chat.completions.create({
         messages: [{ role: 'user', content: prompt }],
-        model: 'llama-3.3-70b-versatile',
+        model: 'llama3-8b-8192',
       });
       
       const text = result.choices[0]?.message?.content?.trim() || '';
