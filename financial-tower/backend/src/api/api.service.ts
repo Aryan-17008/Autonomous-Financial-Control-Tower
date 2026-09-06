@@ -11,7 +11,7 @@ export class ApiService {
   async generateAIExplanation(tx: any, agentName: string, fallback: string): Promise<string> {
     if (!this.genAI) return fallback;
     try {
-      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const model = this.genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
       const prompt = `You are an autonomous financial AI agent named ${agentName}. Explain to the CFO why this transaction is suspicious in 1-2 brief sentences:
       Transaction Amount: ₹${tx.amount}
       Vendor: ${tx.vendor}
